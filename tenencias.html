@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QTM — Tablero de Tenencias</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0f12;--bg2:#13161b;--bg3:#1a1e25;--bg4:#20242c;
+  --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.12);
+  --text:#dde1e8;--muted:#636978;--muted2:#8a9099;
+  --accent:#4f8ef7;--green:#2dd4a0;--warn:#f5a542;--danger:#e8504a;
+  --font:'Sora',sans-serif;--mono:'DM Mono',monospace;
+  --r:8px;--r2:14px;
+}
+html{font-size:14px}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;line-height:1.5}
+
+header{display:flex;align-items:center;gap:14px;padding:12px 24px;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;z-index:100}
+.logo{font-size:14px;font-weight:600;letter-spacing:.06em}
+.logo em{color:var(--accent);font-style:normal}
+.hdr-r{margin-left:auto;display:flex;align-items:center;gap:10px}
+.upd{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.btn-h{padding:5px 13px;font-size:12px;font-family:var(--font);background:transparent;border:1px solid var(--border2);color:var(--muted2);border-radius:var(--r);cursor:pointer;transition:.15s}
+.btn-h:hover{color:var(--text);border-color:var(--accent)}
+
+nav{display:flex;padding:0 24px;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto}
+.nt{padding:10px 16px;font-size:13px;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;transition:.15s;white-space:nowrap;font-family:var(--font)}
+.nt:hover{color:var(--muted2)}
+.nt.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:500}
+
+main{padding:24px;max-width:1440px;width:100%;margin:0 auto}
+
+.ldr{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:55vh;gap:14px}
+.spin{width:34px;height:34px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:sp .75s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.ltxt{font-size:12px;color:var(--muted);font-family:var(--mono)}
+.ebox{background:rgba(232,80,74,.08);border:1px solid rgba(232,80,74,.25);border-radius:var(--r2);padding:18px 22px;margin:32px auto;max-width:580px;font-size:13px;line-height:1.7;color:#f59d9a;display:none}
+.ebox b{color:var(--danger);display:block;margin-bottom:6px}
+
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:18px 20px}
+.ct{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin-bottom:10px}
+.mv{font-size:24px;font-weight:600;color:var(--text);font-family:var(--mono);letter-spacing:-.02em}
+.ms{font-size:11px;color:var(--muted);margin-top:3px;font-family:var(--mono)}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.ga{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:12px}
+@media(max-width:860px){.g2,.g3,.g4{grid-template-columns:1fr}}
+
+.fb{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:18px}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fl{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+select,input[type=text]{background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--font);font-size:13px;padding:7px 11px;border-radius:var(--r);outline:none;transition:.15s;min-width:170px}
+select:focus,input[type=text]:focus{border-color:var(--accent)}
+select option{background:var(--bg3)}
+
+.tw{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r2)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{background:var(--bg3);color:var(--muted);font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:.07em;padding:9px 12px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+thead th:hover{color:var(--muted2)}
+tbody td{padding:8px 12px;border-bottom:1px solid var(--border);white-space:nowrap;color:var(--text)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:rgba(255,255,255,.02)}
+.rn{text-align:right;font-family:var(--mono)}
+.rp{text-align:right;font-family:var(--mono);color:var(--muted)}
+
+.bdg{display:inline-block;font-size:10px;font-weight:500;padding:2px 7px;border-radius:20px}
+
+.pbw{display:flex;align-items:center;gap:6px}
+.pbt{flex:1;height:4px;background:var(--bg4);border-radius:2px;min-width:50px;overflow:hidden}
+.pbf{height:100%;border-radius:2px}
+.pbl{font-family:var(--mono);font-size:11px;color:var(--muted);min-width:38px;text-align:right}
+
+.dl{display:flex;flex-direction:column;gap:7px;margin-top:10px}
+.dlr{display:flex;align-items:center;gap:8px;font-size:12px}
+.dld{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.dln{color:var(--muted2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dlv{font-family:var(--mono);font-size:11px;color:var(--text)}
+.dlp{font-family:var(--mono);font-size:11px;color:var(--muted);min-width:40px;text-align:right}
+
+.bi{margin-bottom:12px}
+.bh{display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px}
+.bn{font-weight:500}
+.bp{font-family:var(--mono);color:var(--muted)}
+.btr{height:5px;background:var(--bg4);border-radius:3px;overflow:hidden}
+.bfi{height:100%;border-radius:3px;transition:width .35s}
+.bsb{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:2px}
+
+.cpb{margin-top:10px;padding:6px 14px;font-size:11px;font-family:var(--font);background:transparent;border:1px solid var(--border2);color:var(--muted);border-radius:var(--r);cursor:pointer;transition:.15s}
+.cpb:hover{color:var(--text);border-color:var(--green)}
+.cpm{font-size:11px;color:var(--green);margin-left:8px;opacity:0;transition:opacity .3s;font-family:var(--mono)}
+
+.view{display:none}
+.view.on{display:block}
+.gap{margin-top:20px}
+.neg{color:var(--danger)!important}
+.pos{color:var(--green)!important}
+.cb{position:relative;width:100%}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">QTM <em>Capital</em></div>
+  <span style="font-size:11px;color:var(--muted);font-family:var(--mono)">tenencias</span>
+  <div class="hdr-r">
+    <span class="upd" id="upd"></span>
+    <button class="btn-h" onclick="loadAll()">↻ actualizar</button>
+  </div>
+</header>
+
+<nav>
+  <button class="nt on" data-v="resumen"  onclick="sv(this)">Resumen general</button>
+  <button class="nt"    data-v="cliente"  onclick="sv(this)">Por cliente</button>
+  <button class="nt"    data-v="explorer" onclick="sv(this)">Explorador</button>
+  <button class="nt"    data-v="ctacte"   onclick="sv(this)">Cta. cte.</button>
+</nav>
+
+<main>
+<div class="ldr" id="ldr"><div class="spin"></div><div class="ltxt" id="ltxt">cargando…</div></div>
+<div class="ebox" id="ebox"><b>Error al cargar los datos</b><span id="emsg"></span></div>
+
+<!-- RESUMEN -->
+<div class="view" id="view-resumen">
+  <div class="ga" id="r-cards" style="margin-bottom:20px"></div>
+  <div class="g2" style="margin-bottom:20px">
+    <div class="card">
+      <div class="ct">Distribución por tipo — cartera total</div>
+      <div class="cb" style="height:250px"><canvas id="ch-tg" role="img" aria-label="Donut tipos"></canvas></div>
+      <div class="dl" id="leg-tg"></div>
+    </div>
+    <div class="card">
+      <div class="ct">Top 10 posiciones por valorizado</div>
+      <div class="cb" style="height:340px"><canvas id="ch-t10" role="img" aria-label="Top 10"></canvas></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct" style="margin-bottom:14px">Exposición por tipo · todos los clientes</div>
+    <div id="r-tab"></div>
+  </div>
+</div>
+
+<!-- POR CLIENTE -->
+<div class="view" id="view-cliente">
+  <div class="fb">
+    <div class="fg">
+      <span class="fl">Cliente</span>
+      <select id="s-cli" onchange="rCli()"><option value="">— seleccioná —</option></select>
+    </div>
+  </div>
+  <div id="cli-c"><p style="color:var(--muted);font-size:13px">Seleccioná un cliente para ver su posición.</p></div>
+</div>
+
+<!-- EXPLORADOR -->
+<div class="view" id="view-explorer">
+  <div class="fb">
+    <div class="fg"><span class="fl">Cliente</span><select id="ex-c" onchange="rExp()"><option value="">Todos</option></select></div>
+    <div class="fg"><span class="fl">Tipo de activo</span><select id="ex-t" onchange="rExp()"><option value="">Todos</option></select></div>
+    <div class="fg"><span class="fl">SubClase</span><select id="ex-s" onchange="rExp()"><option value="">Todas</option></select></div>
+    <div class="fg"><span class="fl">Ticker / Denominación</span><input type="text" id="ex-q" placeholder="buscar…" oninput="rExp()"></div>
+    <div class="fg" style="justify-content:flex-end">
+      <button class="cpb" onclick="cpExp()">copiar tabla</button>
+      <span class="cpm" id="cp-e">✓ copiado</span>
+    </div>
+  </div>
+  <div class="ga" id="ex-cards" style="margin-bottom:18px"></div>
+  <div class="g2" style="margin-bottom:18px">
+    <div class="card">
+      <div class="ct">Distribución · selección actual</div>
+      <div class="cb" style="height:210px"><canvas id="ch-et" role="img" aria-label="Donut selección"></canvas></div>
+      <div class="dl" id="leg-et"></div>
+    </div>
+    <div class="card"><div class="ct">% por tipo · selección actual</div><div id="ex-bars" style="padding-top:4px"></div></div>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr>
+        <th onclick="sEx('Comitente')">Comitente ↕</th>
+        <th onclick="sEx('Nombre')">Nombre ↕</th>
+        <th onclick="sEx('Tipo')">Tipo ↕</th>
+        <th onclick="sEx('Ticker')">Ticker ↕</th>
+        <th onclick="sEx('Denominacion')">Denominación ↕</th>
+        <th class="rn" onclick="sEx('Total')">Cantidad ↕</th>
+        <th class="rn" onclick="sEx('Valorizado')">Valorizado ↕</th>
+        <th class="rn">% portf. cliente</th>
+        <th class="rn">% total filtrado</th>
+        <th onclick="sEx('SubClase')">SubClase ↕</th>
+      </tr></thead>
+      <tbody id="ex-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- CTA CTE -->
+<div class="view" id="view-ctacte">
+  <div class="tw">
+    <table>
+      <thead><tr>
+        <th>Comitente</th><th>Nombre</th>
+        <th class="rn">Pesos</th><th class="rn">USD MEP</th><th class="rn">USD Cable</th>
+      </tr></thead>
+      <tbody id="cta-b"></tbody>
+    </table>
+  </div>
+</div>
+</main>
+
+<script>
+const URL_T="https://docs.google.com/spreadsheets/d/e/2PACX-1vSbQSOt8yRWY_XahadhImuq4j-j8vZK3wqG4SgONhfHL0YEVrd9xQAGW5h6UpVs1gymt7wj-VcEoPE9/pub?gid=553015423&single=true&output=csv";
+const URL_C="https://docs.google.com/spreadsheets/d/e/2PACX-1vSbQSOt8yRWY_XahadhImuq4j-j8vZK3wqG4SgONhfHL0YEVrd9xQAGW5h6UpVs1gymt7wj-VcEoPE9/pub?gid=692760143&single=true&output=csv";
+
+let T=[],C=[];
+let exSC=null,exSD=-1,cliSC=null,cliSD=-1;
+const CH={};
+const TC={"Cedear":"#4f8ef7","ON":"#2dd4a0","Acciones":"#f5a542","Cheque Electrónico":"#c97bdb","Bono":"#e8504a","FCI":"#5dc9e8","Caución":"#e8c24a","default":"#636978"};
+const tc=t=>TC[t]||TC.default;
+
+// CSV parser
+function csvParse(txt){
+  const lines=txt.trim().split(/\r?\n/);
+  if(lines.length<2) return [];
+  const hdr=csvLine(lines[0]);
+  return lines.slice(1).map(l=>{
+    const cols=csvLine(l),obj={};
+    hdr.forEach((h,i)=>obj[h.trim()]=(cols[i]||"").trim());
+    return obj;
+  }).filter(r=>Object.values(r).some(v=>v!==""));
+}
+function csvLine(l){
+  const r=[],re=/("([^"]*(?:""[^"]*)*)"|([^,]*))(,|$)/g;let m;
+  while((m=re.exec(l))!==null){r.push(m[2]!==undefined?m[2].replace(/""/g,'"'):m[3]||"");if(m[4]==="")break;}
+  return r;
+}
+
+async function loadAll(){
+  showL(true,"cargando desde Google Sheets…");
+  hideE();
+  try{
+    const[r1,r2]=await Promise.all([
+      fetch(URL_T).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status+" (tenencia)");return r.text();}),
+      fetch(URL_C).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status+" (ctacte)");return r.text();})
+    ]);
+    T=csvParse(r1).map(normT);
+    C=csvParse(r2);
+    document.getElementById("upd").textContent="actualizado "+new Date().toLocaleTimeString("es-AR");
+    buildAll();
+  }catch(e){showE(e.message);}
+  finally{showL(false);}
+}
+
+function normT(r){
+  ["Disponible","Liquidar","Garantia","Total","Valorizado","PrecioUltimo","Pesificado"].forEach(k=>{
+    const v=r[k]; r[k]=typeof v==="number"?v:pN(v);
+  });
+  return r;
+}
+const V=r=>r.Pesificado||r.Valorizado||0;
+
+function buildAll(){
+  popSels();
+  rRes();
+  rCli();
+  rExp();
+  rCta();
+}
+
+function popSels(){
+  const coms=uniq(T,"Comitente").sort();
+  const tipos=uniq(T,"Tipo").sort();
+  const subs=uniq(T,"SubClase").sort();
+  const nCom=c=>{const r=T.find(x=>x.Comitente===c);return r?r.Nombre:c;};
+  fSel("s-cli", coms,c=>({v:c,l:c+" — "+nCom(c)}),false);
+  fSel("ex-c",  coms,c=>({v:c,l:c+" — "+nCom(c)}),true);
+  fSel("ex-t",  tipos,t=>({v:t,l:t}),true);
+  fSel("ex-s",  subs,s=>({v:s,l:s}),true);
+}
+function fSel(id,items,fn,all){
+  const el=document.getElementById(id),pv=el.value;
+  el.innerHTML=all?'<option value="">Todos</option>':'<option value="">— seleccioná —</option>';
+  items.forEach(i=>{const m=fn(i);el.innerHTML+=`<option value="${m.v}"${m.v===pv?" selected":""}>${m.l}</option>`;});
+}
+
+// ── RESUMEN ──
+function rRes(){
+  const tot=sm(T,V);
+  const nC=new Set(T.map(r=>r.Comitente)).size;
+  const tA=agg(T,"Tipo");
+  const top=Object.entries(tA).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById("r-cards").innerHTML=[
+    {l:"Total valorizado (ARS)",v:fS(tot),s:f(tot)},
+    {l:"Clientes",v:nC,s:""},
+    {l:"Posiciones",v:T.length,s:""},
+    {l:"Mayor exposición",v:top?top[0]:"—",s:top?fP(top[1]/tot*100):""},
+  ].map(c=>`<div class="card"><div class="ct">${c.l}</div><div class="mv">${c.v}</div>${c.s?`<div class="ms">${c.s}</div>`:""}</div>`).join("");
+
+  dc("ch-tg"); rDonut("ch-tg","leg-tg",tA,tot);
+
+  const t10=[...T].sort((a,b)=>V(b)-V(a)).slice(0,10);
+  dc("ch-t10");
+  const ctx=document.getElementById("ch-t10").getContext("2d");
+  CH["ch-t10"]=new Chart(ctx,{
+    type:"bar",
+    data:{
+      labels:t10.map(r=>r.Ticker||(r.Denominacion||"").substring(0,16)||""),
+      datasets:[{data:t10.map(r=>V(r)),backgroundColor:t10.map(r=>tc(r.Tipo)+"bb"),borderColor:t10.map(r=>tc(r.Tipo)),borderWidth:1,borderRadius:4}]
+    },
+    options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>" "+f(c.raw)}}},
+      scales:{
+        x:{ticks:{color:"#636978",callback:v=>fS(v),font:{family:"'DM Mono'",size:11}},grid:{color:"rgba(255,255,255,.04)"}},
+        y:{ticks:{color:"#dde1e8",font:{size:11}},grid:{display:false}}
+      }
+    }
+  });
+
+  // Tabla cruzada
+  const coms=uniq(T,"Comitente").sort();
+  const tipos=Object.keys(tA).sort((a,b)=>tA[b]-tA[a]);
+  const tCli={};coms.forEach(c=>{tCli[c]=sm(T.filter(r=>r.Comitente===c),V);});
+  let h=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr>
+      <th style="padding:8px 12px;border-bottom:1px solid var(--border);color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.07em;text-align:left;white-space:nowrap">Cliente</th>
+      ${tipos.map(t=>`<th style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;color:${tc(t)}">${t}</th>`).join("")}
+      <th style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Total</th>
+    </tr></thead><tbody>`;
+  coms.forEach(com=>{
+    const rows=T.filter(r=>r.Comitente===com),tot2=tCli[com]||0,nom=rows[0]?.Nombre||com;
+    h+=`<tr>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--border);white-space:nowrap">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">${com}</span><br>
+        <span style="font-size:12px">${nom}</span>
+      </td>
+      ${tipos.map(t=>{const v=sm(rows.filter(r=>r.Tipo===t),V);const pct=tot2?v/tot2*100:0;
+        return `<td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">${v>0
+          ?`<span style="color:${tc(t)};font-family:var(--mono);font-size:12px;font-weight:500">${fP(pct)}</span><br><span style="color:var(--muted);font-family:var(--mono);font-size:10px">${fS(v)}</span>`
+          :`<span style="color:var(--border2)">—</span>`}</td>`;
+      }).join("")}
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;font-family:var(--mono);font-size:12px;font-weight:500">${fS(tot2)}</td>
+    </tr>`;
+  });
+  h+="</tbody></table></div>";
+  document.getElementById("r-tab").innerHTML=h;
+}
+
+// ── POR CLIENTE ──
+function rCli(){
+  const com=document.getElementById("s-cli").value;
+  const el=document.getElementById("cli-c");
+  if(!com){el.innerHTML=`<p style="color:var(--muted);font-size:13px">Seleccioná un cliente para ver su posición completa.</p>`;return;}
+  const rows=T.filter(r=>r.Comitente===com);
+  const nom=rows[0]?.Nombre||com;
+  const tot=sm(rows,V);
+  const tA=agg(rows,"Tipo");
+  const ctas=C.filter(r=>String(cKey(r)).trim()===String(com).trim());
+  const cPes=pN(ctaS(ctas,"PESOS")),cMEP=pN(ctaS(ctas,"DOLAR MEP")),cCab=pN(ctaS(ctas,"DOLAR CABLE"));
+
+  el.innerHTML=`
+    <div style="margin-bottom:18px">
+      <div style="font-size:17px;font-weight:600">${nom}</div>
+      <div style="font-size:11px;color:var(--muted);font-family:var(--mono)">comitente ${com}</div>
+    </div>
+    <div class="g4" style="margin-bottom:20px">
+      <div class="card"><div class="ct">Valorizado total</div><div class="mv">${fS(tot)}</div><div class="ms">${f(tot)}</div></div>
+      <div class="card"><div class="ct">Posiciones</div><div class="mv">${rows.length}</div></div>
+      <div class="card"><div class="ct">Cta. cte. pesos</div><div class="mv ${cPes<0?"neg":"pos"}">${f(cPes)}</div></div>
+      <div class="card"><div class="ct">Cta. cte. USD MEP</div><div class="mv">${cMEP.toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
+    </div>
+    <div class="g2" style="margin-bottom:20px">
+      <div class="card">
+        <div class="ct">Por tipo de activo</div>
+        <div class="cb" style="height:230px"><canvas id="ch-ct" role="img" aria-label="Tipos cliente"></canvas></div>
+        <div class="dl" id="leg-ct"></div>
+      </div>
+      <div class="card"><div class="ct">% portfolio por tipo</div><div id="cli-bars" style="margin-top:6px"></div></div>
+    </div>
+    <div class="card gap">
+      <div class="ct" style="margin-bottom:12px">Posición completa</div>
+      <div class="tw"><table>
+        <thead><tr>
+          <th onclick="sCli('Tipo')">Tipo ↕</th>
+          <th onclick="sCli('Ticker')">Ticker ↕</th>
+          <th onclick="sCli('Denominacion')">Denominación ↕</th>
+          <th class="rn" onclick="sCli('Total')">Cantidad ↕</th>
+          <th class="rn" onclick="sCli('Valorizado')">Valorizado ↕</th>
+          <th class="rn">% portfolio</th>
+          <th onclick="sCli('SubClase')">SubClase ↕</th>
+        </tr></thead>
+        <tbody id="cli-tb"></tbody>
+      </table></div>
+      <button class="cpb" onclick="cpCli()">copiar tabla</button>
+      <span class="cpm" id="cp-c">✓ copiado</span>
+    </div>`;
+
+  dc("ch-ct"); rDonut("ch-ct","leg-ct",tA,tot);
+  rBars("cli-bars",tA,tot);
+  rCliTab(rows,tot);
+}
+
+function rCliTab(rows,tot){
+  let s=[...rows];
+  if(cliSC) s.sort((a,b)=>cmp(a,b,cliSC,cliSD));
+  document.getElementById("cli-tb").innerHTML=s.map(r=>{
+    const v=V(r),p=tot?v/tot*100:0;
+    return `<tr>
+      <td><span class="bdg" style="background:${tc(r.Tipo)}22;color:${tc(r.Tipo)}">${r.Tipo||"—"}</span></td>
+      <td style="font-family:var(--mono);font-weight:500">${r.Ticker||"—"}</td>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;color:var(--muted2)">${r.Denominacion||""}</td>
+      <td class="rn">${(r.Total||0).toLocaleString("es-AR",{maximumFractionDigits:2})}</td>
+      <td class="rn">${f(v)}</td>
+      <td class="rp"><div class="pbw"><div class="pbt"><div class="pbf" style="width:${Math.min(p,100).toFixed(1)}%;background:${tc(r.Tipo)}"></div></div><div class="pbl">${fP(p)}</div></div></td>
+      <td style="color:var(--muted);font-size:11px">${r.SubClase||""}</td>
+    </tr>`;
+  }).join("");
+}
+function sCli(col){
+  if(cliSC===col)cliSD*=-1;else{cliSC=col;cliSD=-1;}
+  const com=document.getElementById("s-cli").value;
+  const rows=T.filter(r=>r.Comitente===com);
+  rCliTab(rows,sm(rows,V));
+}
+function cpCli(){
+  const com=document.getElementById("s-cli").value;
+  const rows=T.filter(r=>r.Comitente===com),tot=sm(rows,V);
+  let s="Ticker\tDenominación\tTipo\tCantidad\tValorizado\t% Portfolio\tSubClase\n";
+  rows.forEach(r=>{const v=V(r);s+=`${r.Ticker}\t${r.Denominacion}\t${r.Tipo}\t${r.Total}\t${v.toFixed(2)}\t${(tot?v/tot*100:0).toFixed(2)}%\t${r.SubClase}\n`;});
+  doCp(s,"cp-c");
+}
+
+// ── EXPLORADOR ──
+function gExF(){
+  const cl=document.getElementById("ex-c").value;
+  const ti=document.getElementById("ex-t").value;
+  const sc=document.getElementById("ex-s").value;
+  const q=(document.getElementById("ex-q").value||"").toLowerCase();
+  return T.filter(r=>{
+    if(cl&&r.Comitente!==cl)return false;
+    if(ti&&r.Tipo!==ti)return false;
+    if(sc&&r.SubClase!==sc)return false;
+    if(q&&!(r.Ticker||"").toLowerCase().includes(q)&&!(r.Nombre||"").toLowerCase().includes(q)&&!(r.Denominacion||"").toLowerCase().includes(q))return false;
+    return true;
+  });
+}
+function rExp(){
+  const rows=gExF(),totF=sm(rows,V),nC=new Set(rows.map(r=>r.Comitente)).size,tA=agg(rows,"Tipo");
+  document.getElementById("ex-cards").innerHTML=[
+    {l:"Valorizado filtrado",v:fS(totF),s:f(totF)},
+    {l:"Clientes",v:nC,s:""},
+    {l:"Posiciones",v:rows.length,s:""},
+  ].map(c=>`<div class="card"><div class="ct">${c.l}</div><div class="mv">${c.v}</div>${c.s?`<div class="ms">${c.s}</div>`:""}</div>`).join("");
+  dc("ch-et"); rDonut("ch-et","leg-et",tA,totF);
+  rBars("ex-bars",tA,totF);
+  const tCli={};T.forEach(r=>{tCli[r.Comitente]=(tCli[r.Comitente]||0)+V(r);});
+  let s=[...rows];if(exSC)s.sort((a,b)=>cmp(a,b,exSC,exSD));
+  document.getElementById("ex-body").innerHTML=s.map(r=>{
+    const v=V(r),pC=tCli[r.Comitente]?v/tCli[r.Comitente]*100:0,pF=totF?v/totF*100:0;
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:11px">${r.Comitente}</td>
+      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;color:var(--muted2)">${r.Nombre||""}</td>
+      <td><span class="bdg" style="background:${tc(r.Tipo)}22;color:${tc(r.Tipo)};font-size:10px">${r.Tipo||"—"}</span></td>
+      <td style="font-family:var(--mono);font-weight:500">${r.Ticker||"—"}</td>
+      <td style="max-width:190px;overflow:hidden;text-overflow:ellipsis;color:var(--muted2)">${r.Denominacion||""}</td>
+      <td class="rn">${(r.Total||0).toLocaleString("es-AR",{maximumFractionDigits:2})}</td>
+      <td class="rn">${f(v)}</td>
+      <td class="rp"><div class="pbw"><div class="pbt"><div class="pbf" style="width:${Math.min(pC,100).toFixed(1)}%;background:${tc(r.Tipo)}"></div></div><div class="pbl">${fP(pC)}</div></div></td>
+      <td class="rp">${fP(pF)}</td>
+      <td style="color:var(--muted);font-size:11px">${r.SubClase||""}</td>
+    </tr>`;
+  }).join("");
+}
+function sEx(col){if(exSC===col)exSD*=-1;else{exSC=col;exSD=-1;}rExp();}
+function cpExp(){
+  const rows=gExF(),totF=sm(rows,V);
+  const tCli={};T.forEach(r=>{tCli[r.Comitente]=(tCli[r.Comitente]||0)+V(r);});
+  let s="Comitente\tNombre\tTipo\tTicker\tDenominación\tCantidad\tValorizado\t% Portf. cliente\t% Total filtrado\tSubClase\n";
+  rows.forEach(r=>{const v=V(r);s+=`${r.Comitente}\t${r.Nombre}\t${r.Tipo}\t${r.Ticker}\t${r.Denominacion}\t${r.Total}\t${v.toFixed(2)}\t${(tCli[r.Comitente]?v/tCli[r.Comitente]*100:0).toFixed(2)}%\t${(totF?v/totF*100:0).toFixed(2)}%\t${r.SubClase}\n`;});
+  doCp(s,"cp-e");
+}
+
+// ── CTA CTE ──
+function rCta(){
+  if(!C.length)return;
+  const bC={};
+  C.forEach(r=>{
+    const com=String(cKey(r)).trim();if(!com)return;
+    const nom=C.find(x=>String(cKey(x)).trim()===com&&x["Comitente - Descripción"])?.["Comitente - Descripción"]||"";
+    if(!bC[com])bC[com]={nom,s:{}};
+    bC[com].s[(r.Moneda||"").trim()]=pN(ctaS([r],r.Moneda||""));
+  });
+  document.getElementById("cta-b").innerHTML=Object.entries(bC).map(([com,d])=>{
+    const pes=d.s["PESOS"]||0,mep=d.s["DOLAR MEP"]||0,cab=d.s["DOLAR CABLE"]||0;
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:11px">${com}</td>
+      <td>${d.nom}</td>
+      <td class="rn ${pes<0?"neg":""}">${pes.toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td class="rn">${mep.toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td class="rn">${cab.toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+    </tr>`;
+  }).join("");
+}
+
+// Detectar columna Comitente en ctacte (puede tener encoding raro)
+function cKey(r){
+  const k=Object.keys(r).find(k=>k.includes("mero")||k.includes("úmero")||k==="Comitente - Número");
+  return k?r[k]:r[Object.keys(r)[1]]||"";
+}
+function ctaS(ctas,mon){
+  const r=ctas.find(x=>(x.Moneda||"").trim()===mon);if(!r)return 0;
+  const k=Object.keys(r).find(k=>k.toLowerCase().includes("saldo total"));
+  return k?r[k]:0;
+}
+
+// ── CHARTS ──
+function rDonut(cid,lid,agData,tot){
+  const s=Object.entries(agData).sort((a,b)=>b[1]-a[1]);
+  const ctx=document.getElementById(cid)?.getContext("2d");if(!ctx)return;
+  CH[cid]=new Chart(ctx,{
+    type:"doughnut",
+    data:{labels:s.map(([k])=>k),datasets:[{data:s.map(([,v])=>v),backgroundColor:s.map(([k])=>tc(k)+"bb"),borderColor:s.map(([k])=>tc(k)),borderWidth:1.5,hoverOffset:5}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:"62%",
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>" "+fP(tot?c.raw/tot*100:0)+"  "+fS(c.raw)}}}}
+  });
+  if(lid) document.getElementById(lid).innerHTML=s.map(([k,v])=>`
+    <div class="dlr"><div class="dld" style="background:${tc(k)}"></div><div class="dln">${k}</div><div class="dlv">${fS(v)}</div><div class="dlp">${fP(tot?v/tot*100:0)}</div></div>`).join("");
+}
+function rBars(id,agData,tot){
+  const el=document.getElementById(id);if(!el)return;
+  const s=Object.entries(agData).sort((a,b)=>b[1]-a[1]);
+  el.innerHTML=s.map(([k,v])=>{const p=tot?v/tot*100:0;return `
+    <div class="bi">
+      <div class="bh"><span class="bn" style="color:${tc(k)}">${k}</span><span class="bp">${fP(p)}</span></div>
+      <div class="btr"><div class="bfi" style="width:${p.toFixed(1)}%;background:${tc(k)}"></div></div>
+      <div class="bsb">${fS(v)}</div>
+    </div>`;}).join("");
+}
+function dc(id){if(CH[id]){CH[id].destroy();delete CH[id];}}
+
+// ── UTILS ──
+function pN(v){if(typeof v==="number")return v;return parseFloat((String(v||"")).replace(/\./g,"").replace(",",".").replace(/[^\d.\-]/g,""))||0;}
+const f=n=>"$"+Math.round(n).toLocaleString("es-AR");
+function fS(n){const a=Math.abs(n),s=n<0?"-":"";if(a>=1e9)return s+"$"+(a/1e9).toFixed(2)+"B";if(a>=1e6)return s+"$"+(a/1e6).toFixed(1)+"M";if(a>=1e3)return s+"$"+(a/1e3).toFixed(0)+"K";return s+"$"+a.toFixed(0);}
+const fP=n=>n.toFixed(1)+"%";
+const sm=(arr,fn)=>arr.reduce((s,r)=>s+(fn(r)||0),0);
+const uniq=(arr,k)=>[...new Set(arr.map(r=>r[k]).filter(Boolean))];
+function agg(arr,k){const r={};arr.forEach(row=>{const key=row[k]||"—";r[key]=(r[key]||0)+V(row);});return r;}
+function cmp(a,b,col,dir){const av=a[col],bv=b[col];if(typeof av==="number"&&typeof bv==="number")return(av-bv)*dir;return String(av||"").localeCompare(String(bv||""))*dir;}
+function doCp(text,okId){
+  try{
+    if(navigator.clipboard)navigator.clipboard.writeText(text);
+    else{const t=document.createElement("textarea");t.value=text;document.body.appendChild(t);t.select();document.execCommand("copy");document.body.removeChild(t);}
+    const el=document.getElementById(okId);el.style.opacity="1";setTimeout(()=>el.style.opacity="0",2000);
+  }catch(e){}
+}
+function sv(btn){
+  document.querySelectorAll(".nt").forEach(b=>b.classList.remove("on"));
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("on"));
+  btn.classList.add("on");
+  document.getElementById("view-"+btn.dataset.v).classList.add("on");
+}
+function showL(v,txt){document.getElementById("ldr").style.display=v?"flex":"none";if(txt)document.getElementById("ltxt").textContent=txt;}
+function showE(m){document.getElementById("emsg").textContent=" "+m;document.getElementById("ebox").style.display="block";}
+function hideE(){document.getElementById("ebox").style.display="none";}
+
+window.addEventListener("DOMContentLoaded",()=>{
+  document.getElementById("view-resumen").classList.add("on");
+  loadAll();
+});
+</script>
+</body>
+</html>

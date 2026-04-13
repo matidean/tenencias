@@ -102,6 +102,35 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
 .neg{color:var(--danger)!important}
 .pos{color:var(--green)!important}
 .cb{position:relative;width:100%}
+
+/* ── Matriz ── */
+.mz-filters{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:16px 18px;margin-bottom:18px}
+.mz-filters-title{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin-bottom:12px;font-weight:500}
+.mz-rules{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.mz-rule{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mz-rule-tipo{font-size:12px;font-weight:500;min-width:130px}
+.mz-rule select{min-width:70px;padding:5px 8px;font-size:12px}
+.mz-rule input[type=number]{min-width:70px;padding:5px 8px;font-size:12px;font-family:var(--mono)}
+input[type=number]{background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);outline:none;transition:.15s}
+input[type=number]:focus{border-color:var(--accent)}
+.mz-rule-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px;transition:.15s}
+.mz-rule-del:hover{color:var(--danger)}
+.mz-add-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mz-add-row select{min-width:150px}
+.btn-add{padding:5px 14px;font-size:12px;font-family:var(--font);background:transparent;border:1px solid var(--border2);color:var(--muted2);border-radius:var(--r);cursor:pointer;transition:.15s}
+.btn-add:hover{color:var(--text);border-color:var(--accent)}
+.btn-apply{padding:5px 16px;font-size:12px;font-family:var(--font);background:var(--accent);border:1px solid var(--accent);color:#fff;border-radius:var(--r);cursor:pointer;transition:.15s;font-weight:500}
+.btn-apply:hover{opacity:.85}
+.btn-clear{padding:5px 12px;font-size:12px;font-family:var(--font);background:transparent;border:1px solid var(--border2);color:var(--muted);border-radius:var(--r);cursor:pointer;transition:.15s}
+.btn-clear:hover{color:var(--danger);border-color:var(--danger)}
+.mz-match{font-size:12px;color:var(--muted2);margin-left:4px;font-family:var(--mono)}
+/* Celdas de matriz con color según valor */
+.mz-cell{position:relative;text-align:right;font-family:var(--mono);font-size:12px;padding:7px 12px !important}
+.mz-cell-inner{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.mz-pct{font-weight:500}
+.mz-imp{font-size:10px;color:var(--muted)}
+.mz-hi{background:rgba(232,80,74,.13) !important}   /* destacado por filtro */
+.mz-dim{opacity:.35}                                  /* no cumple filtro */
 </style>
 </head>
 <body>
@@ -119,6 +148,7 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
   <button class="nt"    data-v="cliente"  onclick="sv(this)">Por cliente</button>
   <button class="nt"    data-v="explorer" onclick="sv(this)">Explorador</button>
   <button class="nt"    data-v="ctacte"   onclick="sv(this)">Cta. cte.</button>
+  <button class="nt"    data-v="matriz"   onclick="sv(this)">Matriz exposición</button>
 </nav>
 
 <main>
@@ -208,6 +238,34 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
     </table>
   </div>
 </div>
+
+<!-- MATRIZ -->
+<div class="view" id="view-matriz">
+  <div class="mz-filters">
+    <div class="mz-filters-title">Filtros de umbral — mostrar clientes donde…</div>
+    <div class="mz-rules" id="mz-rules"></div>
+    <div class="mz-add-row">
+      <select id="mz-add-tipo"><option value="">— agregar filtro por tipo —</option></select>
+      <button class="btn-add" onclick="mzAddRule()">+ agregar</button>
+      <button class="btn-apply" onclick="rMz()">aplicar</button>
+      <button class="btn-clear" onclick="mzClear()">limpiar filtros</button>
+      <span class="mz-match" id="mz-match"></span>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+    <span class="fl">Mostrar:</span>
+    <button class="btn-add" id="mz-v-pct" onclick="mzSetView('pct')">% portfolio</button>
+    <button class="btn-add" id="mz-v-imp" onclick="mzSetView('imp')">importe</button>
+    <button class="btn-add" id="mz-v-both" onclick="mzSetView('both')">ambos</button>
+    <div style="margin-left:auto">
+      <button class="cpb" onclick="cpMz()">copiar tabla</button>
+      <span class="cpm" id="cp-mz">✓ copiado</span>
+    </div>
+  </div>
+  <div class="tw">
+    <table><thead id="mz-head"></thead><tbody id="mz-body"></tbody></table>
+  </div>
+</div>
 </main>
 
 <script>
@@ -267,6 +325,7 @@ function buildAll(){
   rCli();
   rExp();
   rCta();
+  mzInit();
 }
 
 function popSels(){
@@ -569,6 +628,163 @@ window.addEventListener("DOMContentLoaded",()=>{
   document.getElementById("view-resumen").classList.add("on");
   loadAll();
 });
+
+// ════════════════════════════════════════════════════════
+// MATRIZ DE EXPOSICIÓN
+// ════════════════════════════════════════════════════════
+let mzRules=[];       // [{tipo, op, val}]
+let mzView='pct';     // 'pct' | 'imp' | 'both'
+let mzTipos=[];       // tipos detectados en los datos
+
+function mzInit(){
+  mzTipos=uniq(T,"Tipo").sort();
+  // Populate selector de tipos para agregar regla
+  const sel=document.getElementById("mz-add-tipo");
+  sel.innerHTML='<option value="">— agregar filtro por tipo —</option>';
+  mzTipos.forEach(t=>sel.innerHTML+=`<option value="${t}">${t}</option>`);
+  mzSetView('pct');
+  rMz();
+}
+
+function mzAddRule(){
+  const sel=document.getElementById("mz-add-tipo");
+  const tipo=sel.value; if(!tipo) return;
+  // No duplicar
+  if(mzRules.find(r=>r.tipo===tipo)) return;
+  mzRules.push({tipo,op:"<",val:20});
+  sel.value="";
+  mzRenderRules();
+  rMz();
+}
+
+function mzRenderRules(){
+  const el=document.getElementById("mz-rules");
+  if(!mzRules.length){ el.innerHTML="<span style='font-size:12px;color:var(--muted)'>Sin filtros activos — se muestran todos los clientes.</span>"; return; }
+  el.innerHTML=mzRules.map((r,i)=>`
+    <div class="mz-rule">
+      <span class="mz-rule-tipo" style="color:${tc(r.tipo)}">${r.tipo}</span>
+      <select onchange="mzUpd(${i},'op',this.value)">
+        <option value="<"  ${r.op==='<' ?'selected':''}>menor que</option>
+        <option value="<=" ${r.op==='<='?'selected':''}>menor o igual que</option>
+        <option value=">"  ${r.op==='>' ?'selected':''}>mayor que</option>
+        <option value=">=" ${r.op==='>='?'selected':''}>mayor o igual que</option>
+        <option value="="  ${r.op==='=' ?'selected':''}>igual a</option>
+        <option value="0"  ${r.op==='0' ?'selected':''}>no tiene</option>
+      </select>
+      ${r.op!=='0'?`<input type="number" min="0" max="100" step="0.5" value="${r.val}" oninput="mzUpd(${i},'val',+this.value)" style="width:70px"> <span style="font-size:12px;color:var(--muted)">%</span>`:''}
+      <button class="mz-rule-del" onclick="mzDel(${i})" title="Eliminar">✕</button>
+    </div>`).join("");
+}
+
+function mzUpd(i,k,v){ mzRules[i][k]=v; rMz(); }
+function mzDel(i){ mzRules.splice(i,1); mzRenderRules(); rMz(); }
+function mzClear(){ mzRules=[]; mzRenderRules(); rMz(); }
+
+function mzSetView(v){
+  mzView=v;
+  ['pct','imp','both'].forEach(x=>{
+    const b=document.getElementById("mz-v-"+x);
+    if(!b) return;
+    b.style.borderColor=x===v?'var(--accent)':'var(--border2)';
+    b.style.color=x===v?'var(--accent)':'var(--muted2)';
+  });
+  rMz();
+}
+
+function rMz(){
+  if(!T.length) return;
+  mzRenderRules();
+
+  // Construir mapa: comitente → {tipo → {val, pct}}
+  const coms=uniq(T,"Comitente").sort();
+  const totCli={};
+  coms.forEach(c=>{ totCli[c]=sm(T.filter(r=>r.Comitente===c),V); });
+
+  // Calcular pct por tipo por cliente
+  const data={}; // data[com][tipo] = {v, pct}
+  coms.forEach(com=>{
+    data[com]={};
+    const rows=T.filter(r=>r.Comitente===com);
+    const tot=totCli[com]||0;
+    mzTipos.forEach(t=>{
+      const v=sm(rows.filter(r=>r.Tipo===t),V);
+      data[com][t]={v, pct:tot?v/tot*100:0};
+    });
+  });
+
+  // Aplicar filtros
+  function pasaFiltros(com){
+    if(!mzRules.length) return true;
+    return mzRules.every(rule=>{
+      const pct=data[com][rule.tipo]?.pct||0;
+      if(rule.op==='0')  return pct===0;
+      if(rule.op==='<')  return pct< rule.val;
+      if(rule.op==='<=') return pct<=rule.val;
+      if(rule.op==='>')  return pct> rule.val;
+      if(rule.op==='>=') return pct>=rule.val;
+      if(rule.op==='=')  return Math.abs(pct-rule.val)<0.05;
+      return true;
+    });
+  }
+
+  const matched=coms.filter(pasaFiltros);
+  const total=coms.length;
+  document.getElementById("mz-match").textContent=
+    mzRules.length ? `${matched.length} de ${total} clientes` : "";
+
+  // Header
+  document.getElementById("mz-head").innerHTML=`<tr>
+    <th style="min-width:100px">Comitente</th>
+    <th style="min-width:180px">Nombre</th>
+    <th class="rn">Total portf.</th>
+    ${mzTipos.map(t=>`<th class="rn" style="color:${tc(t)}">${t}</th>`).join("")}
+  </tr>`;
+
+  // Body — matched primero, luego dimmed
+  const allSorted=[...matched, ...coms.filter(c=>!matched.includes(c))];
+
+  document.getElementById("mz-body").innerHTML=allSorted.map(com=>{
+    const nom=T.find(r=>r.Comitente===com)?.Nombre||"";
+    const tot=totCli[com]||0;
+    const dimmed=mzRules.length&&!matched.includes(com);
+    const rowClass=dimmed?"mz-dim":"";
+
+    const cells=mzTipos.map(t=>{
+      const d=data[com][t]||{v:0,pct:0};
+      const hiRule=mzRules.find(r=>r.tipo===t);
+      const hi=hiRule&&!dimmed&&d.pct>0;
+      let inner="";
+      if(mzView==='pct')    inner=d.pct>0?`<span class="mz-pct">${fP(d.pct)}</span>`:'<span style="color:var(--border2)">—</span>';
+      else if(mzView==='imp') inner=d.v>0?`<span class="mz-pct">${fS(d.v)}</span>`:'<span style="color:var(--border2)">—</span>';
+      else inner=d.pct>0?`<span class="mz-pct">${fP(d.pct)}</span><span class="mz-imp">${fS(d.v)}</span>`:'<span style="color:var(--border2)">—</span>';
+      return `<td class="mz-cell${hi?" mz-hi":""}"><div class="mz-cell-inner">${inner}</div></td>`;
+    }).join("");
+
+    return `<tr class="${rowClass}">
+      <td style="font-family:var(--mono);font-size:11px">${com}</td>
+      <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis">${nom}</td>
+      <td class="rn" style="font-weight:500">${fS(tot)}</td>
+      ${cells}
+    </tr>`;
+  }).join("");
+}
+
+function cpMz(){
+  const coms=uniq(T,"Comitente").sort();
+  const totCli={};coms.forEach(c=>{totCli[c]=sm(T.filter(r=>r.Comitente===c),V);});
+  let s="Comitente\tNombre\tTotal\t"+mzTipos.join("\t")+"\n";
+  coms.forEach(com=>{
+    const nom=T.find(r=>r.Comitente===com)?.Nombre||"";
+    const tot=totCli[com]||0;
+    const cols=mzTipos.map(t=>{
+      const v=sm(T.filter(r=>r.Comitente===com&&r.Tipo===t),V);
+      const pct=tot?v/tot*100:0;
+      return mzView==='imp'?v.toFixed(2):(mzView==='pct'?fP(pct):fP(pct)+" / "+fS(v));
+    });
+    s+=`${com}\t${nom}\t${fS(tot)}\t${cols.join("\t")}\n`;
+  });
+  doCp(s,"cp-mz");
+}
 </script>
 </body>
 </html>

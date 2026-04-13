@@ -241,6 +241,10 @@ input[type=number]:focus{border-color:var(--accent)}
 
 <!-- MATRIZ -->
 <div class="view" id="view-matriz">
+
+  <!-- Indicadores rápidos -->
+  <div class="ga" id="mz-cards" style="margin-bottom:18px"></div>
+
   <div class="mz-filters">
     <div class="mz-filters-title">Filtros de umbral — mostrar clientes donde…</div>
     <div class="mz-rules" id="mz-rules"></div>
@@ -731,6 +735,39 @@ function rMz(){
   const total=coms.length;
   document.getElementById("mz-match").textContent=
     mzRules.length ? `${matched.length} de ${total} clientes` : "";
+
+  // ── Cards indicadores ──────────────────────────────
+  const visibleComs = mzRules.length ? matched : coms;
+  const totVisible  = sm(visibleComs.map(c=>totCli[c]),x=>x);
+  const posVisible  = sm(visibleComs.map(c=>T.filter(r=>r.Comitente===c).length),x=>x);
+
+  // Tipo con más peso promedio entre los clientes visibles
+  const pctPorTipo={};
+  mzTipos.forEach(t=>{
+    const avg=visibleComs.length
+      ? visibleComs.reduce((s,c)=>{const tot2=totCli[c]||0;return s+(tot2?data[c][t].v/tot2*100:0);},0)/visibleComs.length
+      : 0;
+    pctPorTipo[t]=avg;
+  });
+  const topTipo=mzTipos.length?mzTipos.reduce((a,b)=>pctPorTipo[a]>pctPorTipo[b]?a:b):"—";
+
+  // Importe por tipo más grande
+  const impPorTipo={};
+  mzTipos.forEach(t=>{ impPorTipo[t]=sm(visibleComs.map(c=>data[c][t].v),x=>x); });
+  const topTipoImp=mzTipos.length?mzTipos.reduce((a,b)=>impPorTipo[a]>impPorTipo[b]?a:b):"—";
+
+  const hasFilter=mzRules.length>0;
+  document.getElementById("mz-cards").innerHTML=[
+    {l: hasFilter?"Clientes que coinciden":"Clientes totales",      v: visibleComs.length,     s: hasFilter?`de ${total} en total`:"en cartera"},
+    {l: hasFilter?"Portafolio filtrado":"Portafolio total (ARS)",   v: fS(totVisible),          s: f(totVisible)},
+    {l: "Posiciones activas",                                        v: posVisible,              s: hasFilter?"en clientes filtrados":"total"},
+    {l: "Mayor clase (% promedio)",                                  v: topTipo,                 s: fP(pctPorTipo[topTipo]||0)+" prom.",         c:tc(topTipo)},
+    {l: "Mayor clase (importe)",                                     v: topTipoImp,              s: fS(impPorTipo[topTipoImp]||0),               c:tc(topTipoImp)},
+  ].map(c=>`<div class="card">
+    <div class="ct">${c.l}</div>
+    <div class="mv" ${c.c?`style="color:${c.c}"`:""}>${c.v}</div>
+    <div class="ms">${c.s}</div>
+  </div>`).join("");
 
   // Header
   document.getElementById("mz-head").innerHTML=`<tr>

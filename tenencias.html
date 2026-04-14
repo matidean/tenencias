@@ -103,6 +103,13 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
 .pos{color:var(--green)!important}
 .cb{position:relative;width:100%}
 
+/* ── Autocomplete ── */
+.cli-opt{padding:9px 14px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border);transition:.1s}
+.cli-opt:last-child{border-bottom:none}
+.cli-opt:hover,.cli-opt.sel{background:var(--bg4)}
+.cli-opt b{color:var(--accent)}
+.cli-opt-sub{font-size:11px;color:var(--muted);font-family:var(--mono)}
+
 /* ── Matriz ── */
 .mz-filters{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:16px 18px;margin-bottom:18px}
 .mz-filters-title{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin-bottom:12px;font-weight:500}
@@ -178,12 +185,15 @@ input[type=number]:focus{border-color:var(--accent)}
 <!-- POR CLIENTE -->
 <div class="view" id="view-cliente">
   <div class="fb">
-    <div class="fg">
+    <div class="fg" style="position:relative">
       <span class="fl">Cliente</span>
-      <select id="s-cli" onchange="rCli()"><option value="">— seleccioná —</option></select>
+      <div style="position:relative;display:inline-block">
+        <input type="text" id="cli-search" placeholder="Nombre o número de comitente…" oninput="cliSuggest()" onfocus="cliSuggest()" autocomplete="off" style="min-width:320px">
+        <div id="cli-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);z-index:200;max-height:220px;overflow-y:auto;margin-top:2px"></div>
+      </div>
     </div>
   </div>
-  <div id="cli-c"><p style="color:var(--muted);font-size:13px">Seleccioná un cliente para ver su posición.</p></div>
+  <div id="cli-c"><p style="color:var(--muted);font-size:13px">Escribí el nombre o número de comitente para buscar.</p></div>
 </div>
 
 <!-- EXPLORADOR -->
@@ -246,14 +256,24 @@ input[type=number]:focus{border-color:var(--accent)}
   <div class="ga" id="mz-cards" style="margin-bottom:18px"></div>
 
   <div class="mz-filters">
-    <div class="mz-filters-title">Filtros de umbral — mostrar clientes donde…</div>
+    <div class="mz-filters-title">Filtros — mostrar clientes donde…</div>
     <div class="mz-rules" id="mz-rules"></div>
-    <div class="mz-add-row">
-      <select id="mz-add-tipo"><option value="">— agregar filtro por tipo —</option></select>
-      <button class="btn-add" onclick="mzAddRule()">+ agregar</button>
-      <button class="btn-apply" onclick="rMz()">aplicar</button>
-      <button class="btn-clear" onclick="mzClear()">limpiar filtros</button>
-      <span class="mz-match" id="mz-match"></span>
+    <div class="mz-add-row" style="flex-wrap:wrap;gap:8px">
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted)">Agregar regla:</span>
+        <select id="mz-rule-mode" style="min-width:120px">
+          <option value="tipo">por tipo</option>
+          <option value="combo">combinada (suma de tipos)</option>
+          <option value="ticker">por ticker</option>
+        </select>
+        <div id="mz-add-fields" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"></div>
+        <button class="btn-add" onclick="mzAddRule()">+ agregar</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-left:auto">
+        <button class="btn-apply" onclick="rMz()">aplicar</button>
+        <button class="btn-clear" onclick="mzClear()">limpiar</button>
+        <span class="mz-match" id="mz-match"></span>
+      </div>
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
@@ -336,9 +356,7 @@ function popSels(){
   const coms=uniq(T,"Comitente").sort();
   const tipos=uniq(T,"Tipo").sort();
   const subs=uniq(T,"SubClase").sort();
-  const nCom=c=>{const r=T.find(x=>x.Comitente===c);return r?r.Nombre:c;};
-  fSel("s-cli", coms,c=>({v:c,l:c+" — "+nCom(c)}),false);
-  fSel("ex-c",  coms,c=>({v:c,l:c+" — "+nCom(c)}),true);
+  fSel("ex-c",  coms,c=>({v:c,l:c+" — "+(T.find(x=>x.Comitente===c)?.Nombre||c)}),true);
   fSel("ex-t",  tipos,t=>({v:t,l:t}),true);
   fSel("ex-s",  subs,s=>({v:s,l:s}),true);
 }
@@ -411,10 +429,48 @@ function rRes(){
 }
 
 // ── POR CLIENTE ──
+let cliSelected="";
+
+function cliSuggest(){
+  const inp=document.getElementById("cli-search");
+  const q=(inp.value||"").toLowerCase().trim();
+  const dd=document.getElementById("cli-dropdown");
+  if(!T.length){dd.style.display="none";return;}
+  const coms=uniq(T,"Comitente");
+  const matches=coms.filter(c=>{
+    if(!q) return true;
+    const nom=(T.find(r=>r.Comitente===c)?.Nombre||"").toLowerCase();
+    return c.toLowerCase().includes(q)||nom.includes(q);
+  }).slice(0,12);
+  if(!matches.length){dd.style.display="none";return;}
+  dd.innerHTML=matches.map(c=>{
+    const nom=T.find(r=>r.Comitente===c)?.Nombre||"";
+    const hl=s=>q?s.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")})`, "gi"),"<b>$1</b>"):s;
+    return `<div class="cli-opt" onclick="cliSelect('${c}','${nom.replace(/'/g,"\\'")}')">
+      ${hl(nom)}<br><span class="cli-opt-sub">${hl(c)}</span>
+    </div>`;
+  }).join("");
+  dd.style.display="block";
+}
+
+function cliSelect(com,nom){
+  cliSelected=com;
+  document.getElementById("cli-search").value=nom+" ("+com+")";
+  document.getElementById("cli-dropdown").style.display="none";
+  rCli();
+}
+
+document.addEventListener("click",e=>{
+  if(!e.target.closest("#view-cliente")) {
+    const dd=document.getElementById("cli-dropdown");
+    if(dd) dd.style.display="none";
+  }
+});
+
 function rCli(){
-  const com=document.getElementById("s-cli").value;
+  const com=cliSelected;
   const el=document.getElementById("cli-c");
-  if(!com){el.innerHTML=`<p style="color:var(--muted);font-size:13px">Seleccioná un cliente para ver su posición completa.</p>`;return;}
+  if(!com){el.innerHTML=`<p style="color:var(--muted);font-size:13px">Escribí el nombre o número de comitente para buscar.</p>`;return;}
   const rows=T.filter(r=>r.Comitente===com);
   const nom=rows[0]?.Nombre||com;
   const tot=sm(rows,V);
@@ -482,13 +538,11 @@ function rCliTab(rows,tot){
 }
 function sCli(col){
   if(cliSC===col)cliSD*=-1;else{cliSC=col;cliSD=-1;}
-  const com=document.getElementById("s-cli").value;
-  const rows=T.filter(r=>r.Comitente===com);
+  const rows=T.filter(r=>r.Comitente===cliSelected);
   rCliTab(rows,sm(rows,V));
 }
 function cpCli(){
-  const com=document.getElementById("s-cli").value;
-  const rows=T.filter(r=>r.Comitente===com),tot=sm(rows,V);
+  const rows=T.filter(r=>r.Comitente===cliSelected),tot=sm(rows,V);
   let s="Ticker\tDenominación\tTipo\tCantidad\tValorizado\t% Portfolio\tSubClase\n";
   rows.forEach(r=>{const v=V(r);s+=`${r.Ticker}\t${r.Denominacion}\t${r.Tipo}\t${r.Total}\t${v.toFixed(2)}\t${(tot?v/tot*100:0).toFixed(2)}%\t${r.SubClase}\n`;});
   doCp(s,"cp-c");
@@ -636,53 +690,118 @@ window.addEventListener("DOMContentLoaded",()=>{
 // ════════════════════════════════════════════════════════
 // MATRIZ DE EXPOSICIÓN
 // ════════════════════════════════════════════════════════
-let mzRules=[];       // [{tipo, op, val}]
-let mzView='pct';     // 'pct' | 'imp' | 'both'
-let mzTipos=[];       // tipos detectados en los datos
+let mzRules=[];
+let mzView='pct';
+let mzTipos=[];
 
 function mzInit(){
   mzTipos=uniq(T,"Tipo").sort();
-  // Populate selector de tipos para agregar regla
-  const sel=document.getElementById("mz-add-tipo");
-  sel.innerHTML='<option value="">— agregar filtro por tipo —</option>';
-  mzTipos.forEach(t=>sel.innerHTML+=`<option value="${t}">${t}</option>`);
+  mzRenderAddFields();
   mzSetView('pct');
   rMz();
 }
 
+function mzRenderAddFields(){
+  const mode=document.getElementById("mz-rule-mode")?.value||"tipo";
+  const el=document.getElementById("mz-add-fields");
+  if(!el) return;
+  if(mode==="tipo"){
+    el.innerHTML=`<select id="mz-f-tipo" style="min-width:130px">
+      ${mzTipos.map(t=>`<option value="${t}">${t}</option>`).join("")}
+    </select>
+    ${opSelect("mz-f-op","<")}
+    <input type="number" id="mz-f-val" min="0" max="200" step="0.5" value="20" style="width:65px"> <span style="font-size:12px;color:var(--muted)">%</span>`;
+  } else if(mode==="combo"){
+    el.innerHTML=`<div style="display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted)">tipos a sumar:</span>
+        <div id="mz-combo-checks" style="display:flex;gap:8px;flex-wrap:wrap">
+          ${mzTipos.map(t=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+            <input type="checkbox" value="${t}" style="accent-color:${tc(t)};width:14px;height:14px"> <span style="color:${tc(t)}">${t}</span>
+          </label>`).join("")}
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span style="font-size:11px;color:var(--muted)">su suma es</span>
+        ${opSelect("mz-f-op","<")}
+        <input type="number" id="mz-f-val" min="0" max="200" step="0.5" value="50" style="width:65px"> <span style="font-size:12px;color:var(--muted)">%</span>
+      </div>
+    </div>`;
+  } else if(mode==="ticker"){
+    const tickers=uniq(T,"Ticker").sort();
+    el.innerHTML=`<select id="mz-f-ticker-op" style="min-width:80px">
+      <option value="tiene">tiene el ticker</option>
+      <option value="notiene">NO tiene el ticker</option>
+    </select>
+    <select id="mz-f-ticker" style="min-width:120px">
+      ${tickers.map(t=>`<option value="${t}">${t}</option>`).join("")}
+    </select>`;
+  }
+}
+
+document.addEventListener("change",e=>{
+  if(e.target.id==="mz-rule-mode") mzRenderAddFields();
+});
+
+function opSelect(id,def){
+  return `<select id="${id}" style="min-width:110px">
+    <option value="<"  ${"<"===def?"selected":""}>menor que</option>
+    <option value="<=" ${"<="===def?"selected":""}>menor o igual</option>
+    <option value=">"  ${">"===def?"selected":""}>mayor que</option>
+    <option value=">=" ${">="===def?"selected":""}>mayor o igual</option>
+    <option value="="  ${"="===def?"selected":""}>igual a</option>
+    <option value="0"  ${"0"===def?"selected":""}>no tiene</option>
+  </select>`;
+}
+
 function mzAddRule(){
-  const sel=document.getElementById("mz-add-tipo");
-  const tipo=sel.value; if(!tipo) return;
-  // No duplicar
-  if(mzRules.find(r=>r.tipo===tipo)) return;
-  mzRules.push({tipo,op:"<",val:20});
-  sel.value="";
+  const mode=document.getElementById("mz-rule-mode")?.value||"tipo";
+  if(mode==="tipo"){
+    const tipo=document.getElementById("mz-f-tipo")?.value; if(!tipo) return;
+    const op=document.getElementById("mz-f-op")?.value||"<";
+    const val=parseFloat(document.getElementById("mz-f-val")?.value)||20;
+    mzRules.push({kind:"tipo",tipo,op,val});
+  } else if(mode==="combo"){
+    const checks=[...document.querySelectorAll("#mz-combo-checks input:checked")].map(i=>i.value);
+    if(!checks.length){alert("Seleccioná al menos un tipo.");return;}
+    const op=document.getElementById("mz-f-op")?.value||"<";
+    const val=parseFloat(document.getElementById("mz-f-val")?.value)||50;
+    mzRules.push({kind:"combo",tipos:checks,op,val});
+  } else if(mode==="ticker"){
+    const tickerOp=document.getElementById("mz-f-ticker-op")?.value||"tiene";
+    const ticker=document.getElementById("mz-f-ticker")?.value; if(!ticker) return;
+    mzRules.push({kind:"ticker",tickerOp,ticker});
+  }
   mzRenderRules();
   rMz();
 }
 
 function mzRenderRules(){
   const el=document.getElementById("mz-rules");
-  if(!mzRules.length){ el.innerHTML="<span style='font-size:12px;color:var(--muted)'>Sin filtros activos — se muestran todos los clientes.</span>"; return; }
-  el.innerHTML=mzRules.map((r,i)=>`
-    <div class="mz-rule">
-      <span class="mz-rule-tipo" style="color:${tc(r.tipo)}">${r.tipo}</span>
-      <select onchange="mzUpd(${i},'op',this.value)">
-        <option value="<"  ${r.op==='<' ?'selected':''}>menor que</option>
-        <option value="<=" ${r.op==='<='?'selected':''}>menor o igual que</option>
-        <option value=">"  ${r.op==='>' ?'selected':''}>mayor que</option>
-        <option value=">=" ${r.op==='>='?'selected':''}>mayor o igual que</option>
-        <option value="="  ${r.op==='=' ?'selected':''}>igual a</option>
-        <option value="0"  ${r.op==='0' ?'selected':''}>no tiene</option>
-      </select>
-      ${r.op!=='0'?`<input type="number" min="0" max="100" step="0.5" value="${r.val}" oninput="mzUpd(${i},'val',+this.value)" style="width:70px"> <span style="font-size:12px;color:var(--muted)">%</span>`:''}
-      <button class="mz-rule-del" onclick="mzDel(${i})" title="Eliminar">✕</button>
-    </div>`).join("");
+  if(!mzRules.length){
+    el.innerHTML="<span style='font-size:12px;color:var(--muted)'>Sin filtros — se muestran todos los clientes.</span>";
+    return;
+  }
+  el.innerHTML=mzRules.map((r,i)=>{
+    let desc="";
+    if(r.kind==="tipo"){
+      desc=`<span style="color:${tc(r.tipo)};font-weight:500">${r.tipo}</span>
+        <span style="color:var(--muted2)"> ${opLabel(r.op)} </span>
+        ${r.op!=="0"?`<span style="font-family:var(--mono)">${r.val}%</span>`:""}`;
+    } else if(r.kind==="combo"){
+      const cols=r.tipos.map(t=>`<span style="color:${tc(t)}">${t}</span>`).join(' <span style="color:var(--muted)">+</span> ');
+      desc=`${cols} <span style="color:var(--muted2)">(suma) ${opLabel(r.op)}</span> <span style="font-family:var(--mono)">${r.val}%</span>`;
+    } else if(r.kind==="ticker"){
+      desc=`ticker <span style="font-family:var(--mono);font-weight:500">${r.ticker}</span>
+        — <span style="color:var(--muted2)">${r.tickerOp==="tiene"?"tiene posición":"NO tiene posición"}</span>`;
+    }
+    return `<div class="mz-rule">${desc}<button class="mz-rule-del" onclick="mzDel(${i})">✕</button></div>`;
+  }).join("");
 }
 
-function mzUpd(i,k,v){ mzRules[i][k]=v; rMz(); }
-function mzDel(i){ mzRules.splice(i,1); mzRenderRules(); rMz(); }
-function mzClear(){ mzRules=[]; mzRenderRules(); rMz(); }
+function opLabel(op){return{"<":"menor que","<=":"menor o igual",">":" mayor que",">=":"mayor o igual","=":"igual a","0":"no tiene"}[op]||op;}
+function mzDel(i){mzRules.splice(i,1);mzRenderRules();rMz();}
+function mzClear(){mzRules=[];mzRenderRules();rMz();}
 
 function mzSetView(v){
   mzView=v;
@@ -699,105 +818,89 @@ function rMz(){
   if(!T.length) return;
   mzRenderRules();
 
-  // Construir mapa: comitente → {tipo → {val, pct}}
   const coms=uniq(T,"Comitente").sort();
   const totCli={};
-  coms.forEach(c=>{ totCli[c]=sm(T.filter(r=>r.Comitente===c),V); });
+  coms.forEach(c=>{totCli[c]=sm(T.filter(r=>r.Comitente===c),V);});
 
-  // Calcular pct por tipo por cliente
-  const data={}; // data[com][tipo] = {v, pct}
+  const data={};
   coms.forEach(com=>{
     data[com]={};
     const rows=T.filter(r=>r.Comitente===com);
     const tot=totCli[com]||0;
     mzTipos.forEach(t=>{
       const v=sm(rows.filter(r=>r.Tipo===t),V);
-      data[com][t]={v, pct:tot?v/tot*100:0};
+      data[com][t]={v,pct:tot?v/tot*100:0};
     });
   });
 
-  // Aplicar filtros
+  const tickersCli={};
+  coms.forEach(c=>{tickersCli[c]=new Set(T.filter(r=>r.Comitente===c).map(r=>r.Ticker));});
+
+  function evalOp(pct,op,val){
+    if(op==="0")  return pct===0;
+    if(op==="<")  return pct<val;
+    if(op==="<=") return pct<=val;
+    if(op===">")  return pct>val;
+    if(op===">=") return pct>=val;
+    if(op==="=")  return Math.abs(pct-val)<0.05;
+    return true;
+  }
+
   function pasaFiltros(com){
     if(!mzRules.length) return true;
     return mzRules.every(rule=>{
-      const pct=data[com][rule.tipo]?.pct||0;
-      if(rule.op==='0')  return pct===0;
-      if(rule.op==='<')  return pct< rule.val;
-      if(rule.op==='<=') return pct<=rule.val;
-      if(rule.op==='>')  return pct> rule.val;
-      if(rule.op==='>=') return pct>=rule.val;
-      if(rule.op==='=')  return Math.abs(pct-rule.val)<0.05;
+      if(rule.kind==="tipo")   return evalOp(data[com][rule.tipo]?.pct||0,rule.op,rule.val);
+      if(rule.kind==="combo")  return evalOp(rule.tipos.reduce((s,t)=>s+(data[com][t]?.pct||0),0),rule.op,rule.val);
+      if(rule.kind==="ticker"){const tiene=tickersCli[com]?.has(rule.ticker);return rule.tickerOp==="tiene"?tiene:!tiene;}
       return true;
     });
   }
 
   const matched=coms.filter(pasaFiltros);
-  const total=coms.length;
   document.getElementById("mz-match").textContent=
-    mzRules.length ? `${matched.length} de ${total} clientes` : "";
+    mzRules.length?`${matched.length} de ${coms.length} clientes`:"";
 
-  // ── Cards indicadores ──────────────────────────────
-  const visibleComs = mzRules.length ? matched : coms;
-  const totVisible  = sm(visibleComs.map(c=>totCli[c]),x=>x);
-  const posVisible  = sm(visibleComs.map(c=>T.filter(r=>r.Comitente===c).length),x=>x);
-
-  // Tipo con más peso promedio entre los clientes visibles
-  const pctPorTipo={};
-  mzTipos.forEach(t=>{
-    const avg=visibleComs.length
-      ? visibleComs.reduce((s,c)=>{const tot2=totCli[c]||0;return s+(tot2?data[c][t].v/tot2*100:0);},0)/visibleComs.length
-      : 0;
-    pctPorTipo[t]=avg;
-  });
-  const topTipo=mzTipos.length?mzTipos.reduce((a,b)=>pctPorTipo[a]>pctPorTipo[b]?a:b):"—";
-
-  // Importe por tipo más grande
-  const impPorTipo={};
-  mzTipos.forEach(t=>{ impPorTipo[t]=sm(visibleComs.map(c=>data[c][t].v),x=>x); });
-  const topTipoImp=mzTipos.length?mzTipos.reduce((a,b)=>impPorTipo[a]>impPorTipo[b]?a:b):"—";
-
-  const hasFilter=mzRules.length>0;
+  // Cards
+  const vis=mzRules.length?matched:coms;
+  const totVis=sm(vis.map(c=>totCli[c]),x=>x);
+  const posVis=sm(vis.map(c=>T.filter(r=>r.Comitente===c).length),x=>x);
+  const pctPT={};mzTipos.forEach(t=>{pctPT[t]=vis.length?vis.reduce((s,c)=>{const tot2=totCli[c]||0;return s+(tot2?data[c][t].v/tot2*100:0);},0)/vis.length:0;});
+  const topT=mzTipos.length?mzTipos.reduce((a,b)=>pctPT[a]>pctPT[b]?a:b):"—";
+  const impPT={};mzTipos.forEach(t=>{impPT[t]=sm(vis.map(c=>data[c][t].v),x=>x);});
+  const topTI=mzTipos.length?mzTipos.reduce((a,b)=>impPT[a]>impPT[b]?a:b):"—";
+  const hf=mzRules.length>0;
   document.getElementById("mz-cards").innerHTML=[
-    {l: hasFilter?"Clientes que coinciden":"Clientes totales",      v: visibleComs.length,     s: hasFilter?`de ${total} en total`:"en cartera"},
-    {l: hasFilter?"Portafolio filtrado":"Portafolio total (ARS)",   v: fS(totVisible),          s: f(totVisible)},
-    {l: "Posiciones activas",                                        v: posVisible,              s: hasFilter?"en clientes filtrados":"total"},
-    {l: "Mayor clase (% promedio)",                                  v: topTipo,                 s: fP(pctPorTipo[topTipo]||0)+" prom.",         c:tc(topTipo)},
-    {l: "Mayor clase (importe)",                                     v: topTipoImp,              s: fS(impPorTipo[topTipoImp]||0),               c:tc(topTipoImp)},
-  ].map(c=>`<div class="card">
-    <div class="ct">${c.l}</div>
-    <div class="mv" ${c.c?`style="color:${c.c}"`:""}>${c.v}</div>
-    <div class="ms">${c.s}</div>
-  </div>`).join("");
+    {l:hf?"Clientes que coinciden":"Clientes totales",    v:vis.length,  s:hf?`de ${coms.length} en total`:"en cartera"},
+    {l:hf?"Portafolio filtrado":"Portafolio total (ARS)", v:fS(totVis),  s:f(totVis)},
+    {l:"Posiciones activas",                              v:posVis,      s:hf?"en clientes filtrados":"total"},
+    {l:"Mayor clase (% promedio)", v:topT,  s:fP(pctPT[topT]||0)+" prom.", c:tc(topT)},
+    {l:"Mayor clase (importe)",    v:topTI, s:fS(impPT[topTI]||0),         c:tc(topTI)},
+  ].map(c=>`<div class="card"><div class="ct">${c.l}</div><div class="mv" ${c.c?`style="color:${c.c}"`:""}>${c.v}</div><div class="ms">${c.s}</div></div>`).join("");
 
-  // Header
+  // Tabla
   document.getElementById("mz-head").innerHTML=`<tr>
-    <th style="min-width:100px">Comitente</th>
-    <th style="min-width:180px">Nombre</th>
-    <th class="rn">Total portf.</th>
+    <th style="min-width:90px">Comitente</th>
+    <th style="min-width:170px">Nombre</th>
+    <th class="rn">Total</th>
     ${mzTipos.map(t=>`<th class="rn" style="color:${tc(t)}">${t}</th>`).join("")}
   </tr>`;
 
-  // Body — matched primero, luego dimmed
-  const allSorted=[...matched, ...coms.filter(c=>!matched.includes(c))];
-
+  const allSorted=[...matched,...coms.filter(c=>!matched.includes(c))];
   document.getElementById("mz-body").innerHTML=allSorted.map(com=>{
     const nom=T.find(r=>r.Comitente===com)?.Nombre||"";
     const tot=totCli[com]||0;
     const dimmed=mzRules.length&&!matched.includes(com);
-    const rowClass=dimmed?"mz-dim":"";
-
     const cells=mzTipos.map(t=>{
       const d=data[com][t]||{v:0,pct:0};
-      const hiRule=mzRules.find(r=>r.tipo===t);
-      const hi=hiRule&&!dimmed&&d.pct>0;
+      const involvedInRule=mzRules.some(r=>(r.kind==="tipo"&&r.tipo===t)||(r.kind==="combo"&&r.tipos.includes(t)));
+      const hi=involvedInRule&&!dimmed&&d.pct>0;
       let inner="";
-      if(mzView==='pct')    inner=d.pct>0?`<span class="mz-pct">${fP(d.pct)}</span>`:'<span style="color:var(--border2)">—</span>';
-      else if(mzView==='imp') inner=d.v>0?`<span class="mz-pct">${fS(d.v)}</span>`:'<span style="color:var(--border2)">—</span>';
-      else inner=d.pct>0?`<span class="mz-pct">${fP(d.pct)}</span><span class="mz-imp">${fS(d.v)}</span>`:'<span style="color:var(--border2)">—</span>';
+      if(mzView==="pct")      inner=d.pct>0?`<span class="mz-pct">${fP(d.pct)}</span>`:'<span style="color:var(--border2)">—</span>';
+      else if(mzView==="imp") inner=d.v>0?`<span class="mz-pct">${fS(d.v)}</span>`:'<span style="color:var(--border2)">—</span>';
+      else                    inner=d.pct>0?`<span class="mz-pct">${fP(d.pct)}</span><span class="mz-imp">${fS(d.v)}</span>`:'<span style="color:var(--border2)">—</span>';
       return `<td class="mz-cell${hi?" mz-hi":""}"><div class="mz-cell-inner">${inner}</div></td>`;
     }).join("");
-
-    return `<tr class="${rowClass}">
+    return `<tr class="${dimmed?"mz-dim":""}">
       <td style="font-family:var(--mono);font-size:11px">${com}</td>
       <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis">${nom}</td>
       <td class="rn" style="font-weight:500">${fS(tot)}</td>
@@ -816,7 +919,7 @@ function cpMz(){
     const cols=mzTipos.map(t=>{
       const v=sm(T.filter(r=>r.Comitente===com&&r.Tipo===t),V);
       const pct=tot?v/tot*100:0;
-      return mzView==='imp'?v.toFixed(2):(mzView==='pct'?fP(pct):fP(pct)+" / "+fS(v));
+      return mzView==="imp"?v.toFixed(2):(mzView==="pct"?fP(pct):fP(pct)+" / "+fS(v));
     });
     s+=`${com}\t${nom}\t${fS(tot)}\t${cols.join("\t")}\n`;
   });
